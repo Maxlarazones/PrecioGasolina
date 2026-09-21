@@ -2,116 +2,80 @@
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
+  padding: 0;
+  height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: #f5f6f8;
-  color: #1a1a1a;
 }
 
-.container {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 24px 16px 64px;
-}
-
-h1 {
-  font-size: 1.6rem;
-  margin-bottom: 4px;
-}
-
-.subtitle {
-  color: #555;
-  font-size: 0.9rem;
-  margin-bottom: 24px;
-}
-
-.filters {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  background: white;
-  padding: 16px;
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-  margin-bottom: 20px;
-}
-
-.filters select,
-.filters input {
-  padding: 8px 10px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 0.95rem;
-}
-
-.filters button {
-  padding: 8px 18px;
-  border: none;
-  border-radius: 6px;
-  background: #c0392b;
-  color: white;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.filters button:disabled {
-  background: #999;
-  cursor: not-allowed;
-}
-
-.status {
-  margin-bottom: 12px;
-  font-size: 0.9rem;
-  color: #555;
-}
-
-.status.error {
-  color: #c0392b;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-  margin-bottom: 24px;
-}
-
-th,
-td {
-  text-align: left;
-  padding: 10px 12px;
-  border-bottom: 1px solid #eee;
-  font-size: 0.9rem;
-}
-
-th {
-  background: #fafafa;
-  font-weight: 600;
-}
-
-tr:last-child td {
-  border-bottom: none;
-}
-
-.precio {
-  font-weight: 700;
-  color: #1e7d32;
-  white-space: nowrap;
-}
-
+.map-page,
 .map-wrapper {
-  height: 420px;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  position: relative;
+  width: 100%;
+  height: 100vh;
 }
 
-footer {
-  margin-top: 32px;
-  font-size: 0.75rem;
-  color: #888;
+.map-full-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: #555;
+}
+
+/* Puntos del mapa */
+.station-pin {
+  background: none;
+  border: none;
+}
+
+.station-pin .pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 16px;
+  padding: 0 3px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+/* Leyenda fija, abajo a la izquierda */
+.legend {
+  position: absolute;
+  left: 10px;
+  bottom: 24px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px 10px;
+  border-radius: 8px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.25);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.legend-row .dot {
+  margin-right: 6px;
+}
+
+.popup-prices {
+  margin-top: 6px;
+  font-size: 0.85em;
+  border-collapse: collapse;
+}
+
+.popup-prices td {
+  padding: 1px 8px 1px 0;
+  white-space: nowrap;
 }
