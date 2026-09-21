@@ -1,66 +1,124 @@
-# Gasolineras más baratas de España (MVP)
+# Mapa de gasolineras más baratas de España
 
-Ranking en vivo de las gasolineras más baratas de España, con mapa y buscador
-por combustible + ciudad/provincia. Datos oficiales y gratuitos del
-**Ministerio para la Transición Ecológica (MITECO)**.
+Mapa interactivo, sin nada alrededor — pensado para embeber en el cuerpo de
+una noticia (iframe) o para visitarlo directo. Muestra las 10 estaciones más
+baratas de cada comunidad autónoma (17 + Ceuta y Melilla), con un selector
+de combustible flotando arriba a la izquierda. Cada popup muestra los 4
+precios (95, 98, Diésel, Diésel Premium) de esa estación.
 
-## Qué incluye
+Datos oficiales del Ministerio para la Transición Ecológica (MITECO).
 
-- `/` — página con buscador (combustible + ciudad opcional), tabla top 10 y
-  mapa interactivo (Leaflet).
-- `/api/precios` — endpoint propio que descarga, filtra, limpia y ordena los
-  datos de MITECO. Parámetros: `combustible` (`95`, `98`, `diesel`,
-  `diesel_premium`), `ciudad` (texto libre, opcional), `limit` (por defecto 10,
-  máx. 50).
-- Cache de 30 min sobre la llamada a MITECO (vía `fetch` de Next.js) para no
-  golpear la API del Gobierno en cada visita.
+## Subir a GitHub / desplegar en Vercel
 
-## Subir a GitHub
+Igual que siempre:
 
 ```bash
 cd gasolineras-mvp
 git init
 git add .
-git commit -m "MVP gasolineras más baratas"
+git commit -m "Mapa embebible por comunidad"
 git branch -M main
 git remote add origin <URL_DE_TU_REPO>
 git push -u origin main
 ```
 
-## Desplegar en Vercel
+En Vercel: importar el repo, framework Next.js (se detecta solo), deploy.
+Sin variables de entorno.
 
-1. Entra en vercel.com → "Add New..." → "Project"
-2. Importa el repo de GitHub que acabas de crear
-3. Framework: Vercel lo detecta solo como **Next.js**, no hace falta tocar nada
-4. Deploy. Listo — no requiere variables de entorno ni API keys.
+## Embeber en la noticia
 
-## Checklist al desplegar (importante)
+Una vez desplegado, en el cuerpo de la noticia:
 
-- [ ] Prueba `https://tu-proyecto.vercel.app/api/precios?combustible=95&limit=5`
-      directamente en el navegador antes de mirar la UI, para confirmar que
-      MITECO responde bien desde Vercel (aquí en el entorno de desarrollo no
-      pude probar la llamada real por restricciones de red del sandbox, así
-      que esta es la primera prueba real contra el servidor de MITECO).
-- [ ] Si la API de MITECO devuelve error 403/500 puntual, no es el código:
-      esa API pública a veces tiene caídas breves de mantenimiento. Vale la
-      pena tener un mensaje de error amigable (ya está en la UI) y no
-      alarmarse si falla una vez.
-- [ ] Revisa que no aparezcan precios en 0 o absurdamente bajos (dato sucio de
-      algún operador) — el código ya filtra precios <= 0, pero si ves algo raro
-      avísame y ajustamos el filtro.
+```html
+<iframe
+  src="https://tu-proyecto.vercel.app"
+  width="100%"
+  height="600"
+  style="border:0;"
+  loading="lazy"
+></iframe>
+```
 
-## Próximo paso (Fase 2, cuando esto valide tráfico)
+## Si alguna comunidad sigue sin aparecer (modo diagnóstico)
 
-La arquitectura ya está lista para eso sin tocar el backend:
-- Páginas programáticas por provincia (`/gasolineras-mas-baratas/madrid`, etc.)
-  reutilizando el mismo `/api/precios?ciudad=Madrid`
-- Solo hay que añadir rutas `app/gasolineras-mas-baratas/[ciudad]/page.js` que
-  llamen al mismo endpoint con la ciudad fija.
+La clasificación por comunidad autónoma usa dos vías: primero el código
+oficial `IDCCAA` que trae el propio dato de MITECO, y si eso falla, el
+nombre de la provincia por texto. Debería cubrir las 19, pero por si acaso
+dejé un modo de diagnóstico:
+
+Abrí en el navegador:
+`https://tu-proyecto.vercel.app/api/precios-por-comunidad?debug=1`
+
+Te va a devolver un JSON con:
+- `conteoPorComunidad`: cuántas estaciones cayeron en cada comunidad
+  (si "Otras" tiene un número alto, hay estaciones sin clasificar)
+- `muestraSinClasificar`: ejemplos reales de estaciones que no se pudieron
+  ubicar, con su `Provincia` e `IDCCAA` tal como los da la API
+
+Pasame ese JSON (o el bloque `muestraSinClasificar` y `conteoPorComunidad`)
+y ajusto el mapeo en `lib/miteco.js` con el dato real en vez de a ciegas —
+hasta ahora no pude probar contra la API real de MITECO porque el entorno
+donde yo escribo el código no tiene salida a dominios del Gobierno, así que
+este es el primer contacto real con el formato exacto de sus datos.
 
 ## Fuente de datos
 
-Geoportal de Precios de Carburantes, MITECO:
 https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/
 
-Dato público oficial (Real Decreto 4/2013), sin necesidad de API key ni
-autenticación.
+Dato público oficial (Real Decreto 4/2013), sin API key ni autenticación.
+
+---
+
+# Buscador por provincia (`/buscador`)
+
+Buscador de las 10 gasolineras más baratas de cada provincia (52, con
+Ceuta y Melilla) por tipo de combustible. El mapa de portada (`/`) no
+cambia.
+
+- **Estado inicial:** toda España, con la gasolinera más barata de cada
+  provincia para el combustible elegido.
+- **Al buscar:** zoom a la provincia, sus 10 más baratas numeradas del 1 al
+  10 en el color del combustible y el ranking en el panel.
+- **Autocompletar cerrado:** solo acepta provincias de la lista. Entiende
+  sin tildes, capitales, islas y nombres de comunidad ("Euskadi",
+  "Catalunya", "Tenerife", "Vitoria"…). Vacío = toda España.
+- **Rendimiento:** los datos (~50 KB comprimidos) viajan en el HTML y se
+  regeneran cada 30 min. Buscar no hace ninguna llamada de red.
+- **Sin CLS:** barra de altura fija y mapa, chip y panel superpuestos.
+
+## Embed con filtros
+
+```html
+<iframe src="https://TU-DOMINIO/buscador?provincia=sevilla&combustible=diesel"
+        width="100%" height="650" style="border:0;" loading="lazy"></iframe>
+```
+
+- `provincia`: slug en minúsculas sin tildes (`madrid`, `a-coruna`,
+  `illes-balears`, `santa-cruz-de-tenerife`, `valencia-valencia`…).
+- `combustible`: `95`, `98`, `diesel`, `diesel_premium`.
+- Cualquier valor inválido se ignora (se muestra toda España / Gasolina 95).
+- Alto recomendado: 650 px (la barra ocupa 60 px en escritorio y 104 px en
+  móvil).
+
+## Medición
+
+El buscador emite estos eventos: `buscador_busqueda`,
+`buscador_ranking_click`, `buscador_popup` y `buscador_como_llegar`.
+Se envían a `window.dataLayer` y, si está dentro de un iframe, a la página
+padre con `postMessage`. En larazon.es se pueden recoger así y reenviar a
+Marfeel o GA:
+
+```js
+window.addEventListener("message", (e) => {
+  if (!e.origin.endsWith(".vercel.app")) return; // o vuestro dominio propio
+  if (e.data?.source !== "mapa-gasolina") return;
+  // e.data.event, e.data.provincia, e.data.combustible, e.data.gasolinera
+  window.dataLayer?.push({ event: e.data.event, ...e.data });
+});
+```
+
+## Diagnóstico de provincias
+
+`/api/precios-por-comunidad?debug=provincias` lista cómo llega cada
+provincia de MITECO (código + texto) y a cuál la asignamos. `sinProvincia`
+debería ser 0.
