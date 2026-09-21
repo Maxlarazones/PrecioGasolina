@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 
-const StationMap = dynamic(() => import("../components/StationMap"), {
+const StationMap = dynamic(() => import("@/components/StationMap"), {
   ssr: false,
   loading: () => <div className="map-wrapper">Cargando mapa…</div>,
 });
