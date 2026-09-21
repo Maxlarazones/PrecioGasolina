@@ -1,0 +1,403 @@
+/* ---------- Estructura: barra de altura fija + mapa con el resto (sin CLS) ---------- */
+.bz-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  background: #fff;
+}
+
+.bz-bar {
+  flex: 0 0 60px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border-bottom: 1px solid #e5e5e5;
+  background: #fff;
+  position: relative;
+  z-index: 3000; /* el desplegable de provincias queda por encima del mapa */
+}
+
+.bz-map {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.bz-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #666;
+  background: #eef1f4;
+}
+
+/* ---------- Controles ---------- */
+.bz-combo {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 16px evita que iOS haga zoom al enfocar el campo */
+.bz-combo input,
+.bz-fuel {
+  height: 40px;
+  border: 1px solid #c8c8c8;
+  border-radius: 8px;
+  font-size: 16px;
+  background: #fff;
+  color: #1a1a1a;
+}
+
+.bz-combo input {
+  width: 100%;
+  padding: 0 34px 0 12px;
+}
+
+.bz-combo input:focus,
+.bz-fuel:focus {
+  outline: 2px solid #1565c0;
+  outline-offset: 0;
+}
+
+.bz-combo input[aria-invalid="true"] {
+  border-color: #c0392b;
+}
+
+.bz-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: none;
+  font-size: 20px;
+  line-height: 1;
+  color: #888;
+  cursor: pointer;
+}
+
+.bz-list {
+  position: absolute;
+  top: 44px;
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+}
+
+.bz-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 9px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.bz-option small {
+  color: #888;
+  font-size: 12px;
+}
+
+.bz-option.active {
+  background: #eef3f8;
+}
+
+.bz-option.empty {
+  color: #888;
+  cursor: default;
+}
+
+.bz-fuel {
+  flex: 0 0 160px;
+  padding: 0 8px;
+}
+
+.bz-btn {
+  flex: 0 0 auto;
+  height: 40px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 8px;
+  background: #c0392b;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bz-btn:disabled {
+  background: #bbb;
+  cursor: not-allowed;
+}
+
+/* Móvil: dos filas de alto fijo (provincia arriba; combustible + botón abajo) */
+@media (max-width: 639px) {
+  .bz-bar {
+    flex-basis: 104px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: 40px 40px;
+    align-content: center;
+    gap: 8px;
+  }
+  .bz-combo {
+    grid-column: 1 / -1;
+  }
+  .bz-fuel {
+    width: 100%;
+  }
+}
+
+/* ---------- Chip de contexto (arriba, a la derecha del + / −) ---------- */
+.bz-chip {
+  position: absolute;
+  top: 10px;
+  left: 54px;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 70px);
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 8px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.25);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.bz-chip button {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: #1565c0;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  vertical-align: middle;
+  flex: 0 0 auto;
+}
+
+/* ---------- Panel de ranking ----------
+   Móvil (base): abajo y plegado; se despliega con .toggled.
+   Escritorio: a la derecha y desplegado; se pliega con .toggled. */
+.bz-panel {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  max-height: 60%;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.bz-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 12px;
+  border: 0;
+  background: #fff;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  cursor: pointer;
+}
+
+.bz-panel-header small {
+  display: block;
+  font-weight: 400;
+  font-size: 12px;
+  color: #2e7d32;
+}
+
+.bz-chev {
+  transition: transform 0.15s;
+}
+
+.bz-panel-body {
+  display: none;
+  overflow-y: auto;
+  border-top: 1px solid #eee;
+}
+
+.bz-panel.toggled .bz-panel-body {
+  display: block;
+}
+
+.bz-panel.toggled .bz-chev {
+  transform: rotate(180deg);
+}
+
+@media (min-width: 700px) {
+  .bz-panel {
+    left: auto;
+    right: 10px;
+    top: 10px;
+    bottom: 10px;
+    width: 300px;
+    max-height: none;
+  }
+  .bz-panel-body {
+    display: block;
+  }
+  .bz-chev {
+    transform: rotate(180deg);
+  }
+  .bz-panel.toggled {
+    bottom: auto;
+  }
+  .bz-panel.toggled .bz-panel-body {
+    display: none;
+  }
+  .bz-panel.toggled .bz-chev {
+    transform: none;
+  }
+  .bz-chip {
+    max-width: calc(100% - 390px);
+  }
+}
+
+.bz-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bz-row {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fff;
+  text-align: left;
+  font-size: 13px;
+  color: #1a1a1a;
+  cursor: pointer;
+}
+
+.bz-row:hover {
+  background: #f7f9fb;
+}
+
+.bz-rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.bz-row-name {
+  display: block;
+  font-weight: 600;
+}
+
+.bz-row-sub {
+  display: block;
+  font-size: 12px;
+  color: #777;
+}
+
+.bz-price {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bz-note,
+.bz-foot {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: #888;
+}
+
+/* ---------- Puntos del mapa ---------- */
+.sm-pin {
+  background: none;
+  border: none;
+}
+
+.rank-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  font: 700 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.dot-pin {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- Popup ---------- */
+.bz-popup table {
+  margin-top: 6px;
+  font-size: 0.85em;
+  border-collapse: collapse;
+}
+
+.bz-popup td {
+  padding: 1px 8px 1px 0;
+  white-space: nowrap;
+}
+
+.bz-popup tr.active td {
+  font-weight: 700;
+}
+
+.bz-dir {
+  display: inline-block;
+  margin-top: 8px;
+  font-weight: 600;
+  color: #1565c0;
+}
