@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { FUELS } from "@/lib/fuels";
-import { normalize } from "@/lib/provincias";
 import { track } from "@/lib/track";
 
 const SearchMap = dynamic(() => import("@/components/SearchMap"), {
@@ -31,200 +30,58 @@ function formatFecha(iso) {
   }).format(new Date(iso));
 }
 
-/* ---------- Autocompletar de provincia (solo acepta valores de la lista) ---------- */
-
-function ProvinceCombobox({ provincias, text, setText, selectedId, setSelectedId, invalid }) {
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(0);
-  const listId = "bz-provincias";
-
-  const sorted = useMemo(
-    () => [...provincias].sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
-    [provincias]
-  );
-
-  const matches = useMemo(() => {
-    const q = normalize(text);
-    const selected = selectedId && provincias.find((p) => p.id === selectedId);
-    // Vacío o ya elegida: se ofrecen todas para poder cambiar.
-    if (!q || (selected && selected.nombre === text)) return sorted;
-    const score = (p) => {
-      const n = normalize(p.nombre);
-      if (n.startsWith(q)) return 0;
-      if (n.includes(q)) return 1;
-      return 2;
-    };
-    return sorted.filter((p) => p.search.includes(q)).sort((a, b) => score(a) - score(b));
-  }, [text, selectedId, provincias, sorted]);
-
-  useEffect(() => {
-    if (!open) return;
-    const el = document.getElementById(`${listId}-${active}`);
-    if (el) el.scrollIntoView({ block: "nearest" });
-  }, [active, open]);
-
-  function select(p) {
-    setText(p.nombre);
-    setSelectedId(p.id);
-    setOpen(false);
-  }
-
-  function onChange(e) {
-    const value = e.target.value;
-    setText(value);
-    const exact = provincias.find((p) => normalize(p.nombre) === normalize(value));
-    setSelectedId(exact ? exact.id : null);
-    setActive(0);
-    setOpen(true);
-  }
-
-  function onKeyDown(e) {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setOpen(true);
-      setActive((a) => Math.min(a + 1, Math.max(matches.length - 1, 0)));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActive((a) => Math.max(a - 1, 0));
-    } else if (e.key === "Enter" && open && matches[active]) {
-      e.preventDefault();
-      select(matches[active]);
-    } else if (e.key === "Escape") {
-      setOpen(false);
-    }
-  }
-
-  return (
-    <div className="bz-combo">
-      <input
-        type="text"
-        role="combobox"
-        aria-label="Provincia"
-        aria-expanded={open}
-        aria-controls={listId}
-        aria-autocomplete="list"
-        aria-activedescendant={open && matches[active] ? `${listId}-${active}` : undefined}
-        aria-invalid={invalid}
-        autoComplete="off"
-        spellCheck={false}
-        placeholder="Escribe tu provincia (vacío = toda España)"
-        value={text}
-        onChange={onChange}
-        onKeyDown={onKeyDown}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
-      />
-      {text && (
-        <button
-          type="button"
-          className="bz-clear"
-          aria-label="Borrar provincia"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => {
-            setText("");
-            setSelectedId(null);
-          }}
-        >
-          ×
-        </button>
-      )}
-      {open && (
-        <ul className="bz-list" id={listId} role="listbox">
-          {matches.length === 0 && <li className="bz-option empty">Sin coincidencias</li>}
-          {matches.map((p, i) => (
-            <li
-              key={p.id}
-              id={`${listId}-${i}`}
-              role="option"
-              aria-selected={i === active}
-              className={`bz-option ${i === active ? "active" : ""}`}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                select(p);
-              }}
-              onMouseEnter={() => setActive(i)}
-            >
-              <span>{p.nombre}</span>
-              <small>{p.ccaa}</small>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 /* ---------- Página del buscador ---------- */
 
 export default function BuscadorClient({ data, actualizado }) {
   const { provincias, stations } = data;
   const provById = useMemo(() => new Map(provincias.map((p) => [p.id, p])), [provincias]);
+  const provsOrdenadas = useMemo(
+    () => [...provincias].sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
+    [provincias]
+  );
 
-  // Encuadre de "toda España": unión de los encuadres de todas las provincias.
-  const spainBounds = useMemo(() => {
-    let s = 90, w = 180, n = -90, e = -180;
-    for (const p of provincias) {
-      s = Math.min(s, p.bounds[0][0]);
-      w = Math.min(w, p.bounds[0][1]);
-      n = Math.max(n, p.bounds[1][0]);
-      e = Math.max(e, p.bounds[1][1]);
-    }
-    return [[s, w], [n, e]];
-  }, [provincias]);
-
-  // Lo que el usuario está editando...
+  // Lo que el usuario está eligiendo en el formulario...
   const [fuel, setFuel] = useState(DEFAULT_FUEL);
-  const [text, setText] = useState("");
-  const [selectedId, setSelectedId] = useState(null);
-  // ...y lo que el mapa muestra (cambia solo al pulsar Buscar).
-  const [applied, setApplied] = useState({ fuel: DEFAULT_FUEL, provId: null });
-  const [ready, setReady] = useState(false);
+  const [provId, setProvId] = useState(null);
+  // ...y la búsqueda ya lanzada. null = todavía no se pulsó "Buscar": no se
+  // monta el mapa ni el panel, solo el hueco vacío (mismo alto -> sin CLS).
+  const [applied, setApplied] = useState(null);
   const [panelToggled, setPanelToggled] = useState(false);
   const mapApi = useRef(null);
 
-  // Filtros desde la URL (?provincia=madrid&combustible=diesel), validados
-  // contra las listas. El mapa se monta después, ya con el encuadre correcto.
+  // Filtros desde la URL (?provincia=madrid&combustible=diesel): si vienen
+  // completos y válidos, precargan el formulario y lanzan la búsqueda ya
+  // encuadrada. Si no, se queda en el estado inicial (formulario vacío).
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     const f = FUEL_BY_KEY[q.get("combustible")] ? q.get("combustible") : DEFAULT_FUEL;
     const prov = provincias.find((p) => p.slug === q.get("provincia")) || null;
     setFuel(f);
-    setApplied({ fuel: f, provId: prov ? prov.id : null });
     if (prov) {
-      setText(prov.nombre);
-      setSelectedId(prov.id);
+      setProvId(prov.id);
+      setApplied({ fuel: f, provId: prov.id });
     }
-    setReady(true);
   }, [provincias]);
 
-  const invalid = text.trim() !== "" && selectedId === null;
-  const activeFuel = FUEL_BY_KEY[applied.fuel];
+  const activeFuel = applied ? FUEL_BY_KEY[applied.fuel] : FUEL_BY_KEY[fuel];
 
   const view = useMemo(() => {
-    const fi = activeFuel.index;
-    if (applied.provId) {
-      const p = provById.get(applied.provId);
-      const rows = p.top[applied.fuel].map((idx, i) => ({
-        st: stations[idx],
-        rank: i + 1,
-        precio: stations[idx].p[fi],
-        provNombre: p.nombre,
-      }));
-      return { mode: "prov", prov: p, rows, bounds: p.bounds, key: `p${p.id}-${applied.fuel}` };
-    }
-    const rows = provincias
-      .filter((p) => p.top[applied.fuel].length > 0)
-      .map((p) => {
-        const st = stations[p.top[applied.fuel][0]];
-        return { st, rank: null, precio: st.p[fi], provNombre: p.nombre };
-      })
-      .sort((a, b) => a.precio - b.precio);
-    return { mode: "es", rows, bounds: spainBounds, key: `es-${applied.fuel}` };
-  }, [applied, activeFuel, provById, provincias, stations, spainBounds]);
+    if (!applied) return null;
+    const fi = FUEL_BY_KEY[applied.fuel].index;
+    const p = provById.get(applied.provId);
+    if (!p) return null;
+    const rows = p.top[applied.fuel].map((idx, i) => ({
+      st: stations[idx],
+      rank: i + 1,
+      precio: stations[idx].p[fi],
+      provNombre: p.nombre,
+    }));
+    return { prov: p, rows, bounds: p.bounds, key: `p${p.id}-${applied.fuel}` };
+  }, [applied, provById, stations]);
 
-  function updateUrl(provId, fuelKey) {
+  function updateUrl(pid, fuelKey) {
     const q = new URLSearchParams();
-    const p = provId ? provById.get(provId) : null;
+    const p = pid ? provById.get(pid) : null;
     if (p) q.set("provincia", p.slug);
     q.set("combustible", fuelKey);
     window.history.replaceState(null, "", `${window.location.pathname}?${q.toString()}`);
@@ -232,20 +89,11 @@ export default function BuscadorClient({ data, actualizado }) {
 
   function onSubmit(e) {
     e.preventDefault();
-    if (invalid) return;
-    setApplied({ fuel, provId: selectedId });
-    updateUrl(selectedId, fuel);
-    track("buscador_busqueda", {
-      provincia: selectedId ? provById.get(selectedId).nombre : "España",
-      combustible: fuel,
-    });
-  }
-
-  function verTodaEspana() {
-    setText("");
-    setSelectedId(null);
-    setApplied((a) => ({ ...a, provId: null }));
-    updateUrl(null, applied.fuel);
+    if (!provId) return;
+    setApplied({ fuel, provId });
+    setPanelToggled(false);
+    updateUrl(provId, fuel);
+    track("buscador_busqueda", { provincia: provById.get(provId).nombre, combustible: fuel });
   }
 
   function onRowClick(row) {
@@ -255,24 +103,26 @@ export default function BuscadorClient({ data, actualizado }) {
     track("buscador_ranking_click", { gasolinera: row.st.n, provincia: row.provNombre });
   }
 
-  const title =
-    view.mode === "prov"
-      ? `Top ${view.rows.length} · ${activeFuel.label} · ${view.prov.nombre}`
-      : `La más barata de cada provincia · ${activeFuel.label}`;
+  const title = view && `Top ${view.rows.length} · ${activeFuel.label} · ${view.prov.nombre}`;
 
   return (
     <div className="bz-page">
       <form className="bz-bar" onSubmit={onSubmit}>
-        <ProvinceCombobox
-          provincias={provincias}
-          text={text}
-          setText={setText}
-          selectedId={selectedId}
-          setSelectedId={setSelectedId}
-          invalid={invalid}
-        />
         <select
-          className="bz-fuel"
+          className="bz-select"
+          aria-label="Provincia"
+          value={provId ?? ""}
+          onChange={(e) => setProvId(e.target.value ? Number(e.target.value) : null)}
+        >
+          <option value="">Elige tu provincia</option>
+          {provsOrdenadas.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.nombre}
+            </option>
+          ))}
+        </select>
+        <select
+          className="bz-select bz-fuel"
           aria-label="Tipo de combustible"
           value={fuel}
           onChange={(e) => setFuel(e.target.value)}
@@ -283,93 +133,88 @@ export default function BuscadorClient({ data, actualizado }) {
             </option>
           ))}
         </select>
-        <button type="submit" className="bz-btn" disabled={invalid}>
+        <button type="submit" className="bz-btn" disabled={!provId}>
           Buscar
         </button>
       </form>
 
       <div className="bz-map">
-        {ready ? (
-          <SearchMap
-            rows={view.rows}
-            fuelKey={applied.fuel}
-            bounds={view.bounds}
-            viewKey={view.key}
-            apiRef={mapApi}
-            onEvent={track}
-          />
-        ) : (
-          <div className="bz-loading">Cargando mapa…</div>
-        )}
-
-        <div className="bz-chip">
-          <span className="dot" style={{ background: activeFuel.color }} />
-          <span>
-            {activeFuel.label}
-            {view.mode === "prov" ? ` · ${view.prov.nombre}` : " · España"}
-          </span>
-          {view.mode === "prov" && (
-            <button type="button" onClick={verTodaEspana}>
-              Ver toda España
-            </button>
-          )}
-        </div>
-
-        <aside className={`bz-panel ${panelToggled ? "toggled" : ""}`}>
-          <button
-            type="button"
-            className="bz-panel-header"
-            aria-controls="bz-panel-body"
-            onClick={() => setPanelToggled((t) => !t)}
-          >
-            <span>
-              {title}
-              {view.rows[0] && <small>Desde {fmt(view.rows[0].precio)}</small>}
-            </span>
-            <span className="bz-chev" aria-hidden="true">▾</span>
-          </button>
-
-          <div className="bz-panel-body" id="bz-panel-body">
-            {view.rows.length === 0 ? (
-              <p className="bz-note">
-                No hay gasolineras con {activeFuel.label} en {view.prov?.nombre}.
-              </p>
-            ) : (
-              <ol className="bz-rows">
-                {view.rows.map((row, i) => (
-                  <li key={`${view.key}-${row.st.id}`}>
-                    <button type="button" className="bz-row" onClick={() => onRowClick(row)}>
-                      <span
-                        className="bz-rank"
-                        style={{
-                          background: activeFuel.color,
-                          color: applied.fuel === "diesel_premium" ? "#212121" : "#fff",
-                        }}
-                      >
-                        {i + 1}
-                      </span>
-                      <span>
-                        <span className="bz-row-name">
-                          {view.mode === "prov" ? row.st.n : row.provNombre}
-                        </span>
-                        <span className="bz-row-sub">
-                          {view.mode === "prov" ? row.st.m : `${row.st.n} · ${row.st.m}`}
-                        </span>
-                      </span>
-                      <span className="bz-price">{fmt(row.precio)}</span>
-                    </button>
-                  </li>
-                ))}
-              </ol>
-            )}
-            {view.mode === "prov" && view.rows.length > 0 && view.rows.length < 10 && (
-              <p className="bz-note">
-                Solo hay {view.rows.length} gasolineras con {activeFuel.label} en {view.prov.nombre}.
-              </p>
-            )}
-            <p className="bz-foot">Datos: MITECO · Actualizado {formatFecha(actualizado)}</p>
+        {!view ? (
+          <div className="bz-empty">
+            <p>Elige combustible y provincia, y pulsa Buscar.</p>
+            <p className="bz-empty-sub">Verás las 10 gasolineras más baratas en el mapa.</p>
           </div>
-        </aside>
+        ) : (
+          <>
+            <SearchMap
+              rows={view.rows}
+              fuelKey={applied.fuel}
+              bounds={view.bounds}
+              viewKey={view.key}
+              apiRef={mapApi}
+              onEvent={track}
+            />
+
+            <div className="bz-chip">
+              <span className="dot" style={{ background: activeFuel.color }} />
+              <span>
+                {activeFuel.label} · {view.prov.nombre}
+              </span>
+            </div>
+
+            <aside className={`bz-panel ${panelToggled ? "toggled" : ""}`}>
+              <button
+                type="button"
+                className="bz-panel-header"
+                aria-controls="bz-panel-body"
+                onClick={() => setPanelToggled((t) => !t)}
+              >
+                <span>
+                  {title}
+                  {view.rows[0] && <small>Desde {fmt(view.rows[0].precio)}</small>}
+                </span>
+                <span className="bz-chev" aria-hidden="true">▾</span>
+              </button>
+
+              <div className="bz-panel-body" id="bz-panel-body">
+                {view.rows.length === 0 ? (
+                  <p className="bz-note">
+                    No hay gasolineras con {activeFuel.label} en {view.prov.nombre}.
+                  </p>
+                ) : (
+                  <ol className="bz-rows">
+                    {view.rows.map((row, i) => (
+                      <li key={`${view.key}-${row.st.id}`}>
+                        <button type="button" className="bz-row" onClick={() => onRowClick(row)}>
+                          <span
+                            className="bz-rank"
+                            style={{
+                              background: activeFuel.color,
+                              color: applied.fuel === "diesel_premium" ? "#212121" : "#fff",
+                            }}
+                          >
+                            {i + 1}
+                          </span>
+                          <span>
+                            <span className="bz-row-name">{row.st.n}</span>
+                            <span className="bz-row-sub">{row.st.m}</span>
+                          </span>
+                          <span className="bz-price">{fmt(row.precio)}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+                {view.rows.length > 0 && view.rows.length < 10 && (
+                  <p className="bz-note">
+                    Solo hay {view.rows.length} gasolineras con {activeFuel.label} en {view.prov.nombre}.
+                  </p>
+                )}
+                <p className="bz-foot">Datos: MITECO · Actualizado {formatFecha(actualizado)}</p>
+              </div>
+            </aside>
+          </>
+        )}
       </div>
     </div>
   );
