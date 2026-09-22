@@ -26,27 +26,38 @@
   min-height: 0;
 }
 
-.bz-loading {
+.bz-loading,
+.bz-empty {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   width: 100%;
   height: 100%;
+  padding: 0 20px;
+  text-align: center;
   color: #666;
   background: #eef1f4;
 }
 
-/* ---------- Controles ---------- */
-.bz-combo {
-  position: relative;
-  flex: 1 1 auto;
-  min-width: 0;
+.bz-empty p {
+  margin: 0;
+  font-size: 15px;
 }
 
+.bz-empty-sub {
+  font-size: 13px !important;
+  color: #888;
+}
+
+/* ---------- Controles ---------- */
 /* 16px evita que iOS haga zoom al enfocar el campo */
-.bz-combo input,
-.bz-fuel {
+.bz-select {
+  flex: 1 1 auto;
+  min-width: 0;
   height: 40px;
+  padding: 0 10px;
   border: 1px solid #c8c8c8;
   border-radius: 8px;
   font-size: 16px;
@@ -54,79 +65,13 @@
   color: #1a1a1a;
 }
 
-.bz-combo input {
-  width: 100%;
-  padding: 0 34px 0 12px;
-}
-
-.bz-combo input:focus,
-.bz-fuel:focus {
+.bz-select:focus {
   outline: 2px solid #1565c0;
   outline-offset: 0;
 }
 
-.bz-combo input[aria-invalid="true"] {
-  border-color: #c0392b;
-}
-
-.bz-clear {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 28px;
-  height: 28px;
-  border: 0;
-  background: none;
-  font-size: 20px;
-  line-height: 1;
-  color: #888;
-  cursor: pointer;
-}
-
-.bz-list {
-  position: absolute;
-  top: 44px;
-  left: 0;
-  right: 0;
-  max-height: 260px;
-  overflow-y: auto;
-  margin: 0;
-  padding: 4px 0;
-  list-style: none;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
-}
-
-.bz-option {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
-  padding: 9px 12px;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.bz-option small {
-  color: #888;
-  font-size: 12px;
-}
-
-.bz-option.active {
-  background: #eef3f8;
-}
-
-.bz-option.empty {
-  color: #888;
-  cursor: default;
-}
-
 .bz-fuel {
   flex: 0 0 160px;
-  padding: 0 8px;
 }
 
 .bz-btn {
@@ -157,7 +102,7 @@
     align-content: center;
     gap: 8px;
   }
-  .bz-combo {
+  .bz-select:first-child {
     grid-column: 1 / -1;
   }
   .bz-fuel {
