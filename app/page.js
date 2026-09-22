@@ -1,14 +1,20 @@
-import MapClient from "@/components/MapClient";
-import { fetchEstaciones, buildMapData } from "@/lib/miteco";
+import "./buscador/buscador.css";
+import BuscadorClient from "@/components/BuscadorClient";
+import { fetchEstaciones } from "@/lib/miteco";
+import { buildSearchData } from "@/lib/buscador";
 
-// La página se genera en el servidor y se cachea 30 minutos (ISR).
-// El usuario recibe el HTML con los puntos ya calculados: no hay espera
-// de carga de datos en el navegador. Si MITECO falla al regenerar,
-// Vercel sigue sirviendo la última versión buena.
+export const metadata = {
+  title: "Buscador de gasolineras más baratas por provincia",
+  description:
+    "Las 10 gasolineras más baratas de cada provincia de España por tipo de combustible. Datos oficiales del Ministerio para la Transición Ecológica.",
+};
+
+// La raíz es el buscador (es lo que se embebe en la noticia).
+// El mapa antiguo por comunidades sigue disponible en /mapa.
 export const revalidate = 1800;
 
 export default async function Home() {
   const raw = await fetchEstaciones();
-  const stations = buildMapData(raw, 10);
-  return <MapClient stations={stations} />;
+  const data = buildSearchData(raw, 10);
+  return <BuscadorClient data={data} actualizado={new Date().toISOString()} />;
 }
